@@ -2,7 +2,10 @@ import numpy as np
 from Util.function import sigmoid, softmax, cross_entropy_error, numerical_gradient, mean_squared_error, relu
 from Layer.Affine import Affine
 from Layer.Sigmoid import Sigmoid
+from Layer.SoftmaxWithLoss import SoftmaxWithLoss
 from collections import OrderedDict
+import pickle
+import os
 
 
 class MyNet:
@@ -23,6 +26,8 @@ class MyNet:
         self.layers['Affine2'] = Affine(
             self.params['W2'], self.params['b2'])
 
+        self.lastLayer = SoftmaxWithLoss()
+
     def predict(self, x):
         for layer in self.layers.values():
             x = layer.forward(x)
@@ -31,9 +36,8 @@ class MyNet:
 
     def loss(self, x, t):
         y = self.predict(x)
-        loss = mean_squared_error(y, t)
 
-        return loss
+        return self.lastLayer.forward(y, t)
 
     def accuracy(self, x, t):
         y = self.predict(x)
@@ -55,10 +59,12 @@ class MyNet:
 
     def gradient(self, x, t):
         # forward
-        self.predict(x)
+        self.loss(x, t)
 
         # backward
         dout = 1
+        dout = self.lastLayer.backward(dout)
+
         layers = list(self.layers.values())
         layers.reverse()
         for layer in layers:
@@ -72,3 +78,36 @@ class MyNet:
         grads['b2'] = self.layers['Affine2'].db
 
         return grads
+
+    def save_params(self, file_name="params.pkl"):
+        params = {}
+        for key, val in self.params.items():
+            params[key] = val
+        with open(file_name, 'wb') as f:
+            pickle.dump(params, f)
+
+    def load_params(self, file_name="params.pkl"):
+        if not os.path.exists(file_name):
+            self.save_params(file_name)
+
+        with open(file_name, 'rb') as f:
+            params = pickle.load(f)
+
+        for key, val in params.items():
+            self.params[key] = val
+
+        for i, key in enumerate(['Affine1', 'Affine2']):
+            self.layers[key].W = self.params['W' + str(i + 1)]
+            self.layers[key].b = self.params['b' + str(i + 1)]
+
+    def train(self, X, t, iter_num, learning_rate=0.01, continue_train=False):
+        if (continue_train):
+            self.load_params()
+        for i in range(iter_num):
+            loss = self.loss(X, t)
+            grads = self.gradient(X, t)
+            for key in ("W1", "b1", "W2", "b2"):
+                self.params[key] -= learning_rate * grads[key]
+            if (i % 100 == 0):
+                print(i, loss)
+        self.save_params()

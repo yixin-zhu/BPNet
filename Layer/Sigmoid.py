@@ -6,9 +6,8 @@ class Sigmoid:
         self.out = None
 
     def forward(self, x):
-        out = 1 / (1 + np.exp(-x))
-        self.out = out
-        return out
+        self.out = 1.0 / (1.0 + np.exp(-x))
+        return self.out
 
     def backward(self, dout):
         dx = dout * self.out * (1.0 - self.out)
